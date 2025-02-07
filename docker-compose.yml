@@ -1,0 +1,46 @@
+version: "3.9"
+
+services:
+  backend:
+    build: ./backend
+    container_name: backend
+    ports:
+      - "8000:8000"
+    depends_on:
+      - clickhouse
+    environment:
+      - CLICKHOUSE_HOST=clickhouse
+      - CLICKHOUSE_PORT=8123
+      - CLICKHOUSE_USER=default
+      - CLICKHOUSE_PASSWORD=default
+      - CLICKHOUSE_DB=default
+      - UV_COMPILE_BYTECODE=1
+      - UV_LINK_MODE=copy
+    command: ["fastapi", "run", "--workers", "4", "app/main.py"]
+    networks:
+      - app_network
+
+  clickhouse:
+    image: clickhouse/clickhouse-server:latest
+    container_name: clickhouse_db
+    restart: always
+    ports:
+      - "8123:8123" # HTTP interface
+      - "9000:9000" # Native TCP interface
+    environment:
+      - CLICKHOUSE_DB=default
+      - CLICKHOUSE_USER=default
+      - CLICKHOUSE_PASSWORD=default
+    volumes:
+      - clickhouse_data:/var/lib/clickhouse
+      - clickhouse_logs:/var/log/clickhouse-server
+    networks:
+      - app_network
+
+volumes:
+  clickhouse_data:
+  clickhouse_logs:
+
+networks:
+  app_network:
+    driver: bridge
