@@ -1,0 +1,16 @@
+[project]
+name = "gitlytix"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "fastapi[standard]>=0.115.8",
+    "sqlmodel",
+    "pydantic-settings",
+    "clickhouse-connect",
+    "clickhouse-sqlalchemy>=0.2.4"
+]
+
+[tool.poetry.dependencies]
+clickhouse-connect = "^0.7.0"
