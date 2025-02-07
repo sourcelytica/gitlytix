@@ -3,20 +3,20 @@ version: "3.9"
 services:
   backend:
     build: ./backend
-    container_name: backend
-    ports:
-      - "8000:8000"
     depends_on:
-      - clickhouse
+      clickhouse:
+        condition: service_healthy
     environment:
-      - CLICKHOUSE_HOST=clickhouse
-      - CLICKHOUSE_PORT=8123
-      - CLICKHOUSE_USER=default
-      - CLICKHOUSE_PASSWORD=default
-      - CLICKHOUSE_DB=default
+      - CLICKHOUSE_HOST=${CLICKHOUSE_HOST}
+      - CLICKHOUSE_PORT=${CLICKHOUSE_PORT}
+      - CLICKHOUSE_USER=${CLICKHOUSE_USER}
+      - CLICKHOUSE_PASSWORD=${CLICKHOUSE_PASSWORD}
+      - CLICKHOUSE_DB=${CLICKHOUSE_DB}
       - UV_COMPILE_BYTECODE=1
       - UV_LINK_MODE=copy
     command: ["fastapi", "run", "--workers", "4", "app/main.py"]
+    ports:
+      - "8000:8000"
     networks:
       - app_network
 
@@ -25,15 +25,20 @@ services:
     container_name: clickhouse_db
     restart: always
     ports:
-      - "8123:8123" # HTTP interface
-      - "9000:9000" # Native TCP interface
+      - "8123:8123"
+      - "9000:9000"
     environment:
-      - CLICKHOUSE_DB=default
-      - CLICKHOUSE_USER=default
-      - CLICKHOUSE_PASSWORD=default
+      - CLICKHOUSE_DB=${CLICKHOUSE_DB}
+      - CLICKHOUSE_USER=${CLICKHOUSE_USER}
+      - CLICKHOUSE_PASSWORD=${CLICKHOUSE_PASSWORD}
     volumes:
       - clickhouse_data:/var/lib/clickhouse
       - clickhouse_logs:/var/log/clickhouse-server
+    healthcheck:
+      test: wget --no-verbose --tries=1 --spider http://localhost:8123/ping || exit 1
+      interval: 5s
+      timeout: 3s
+      retries: 5
     networks:
       - app_network
 

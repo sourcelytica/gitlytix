@@ -5,19 +5,22 @@ from clickhouse_sqlalchemy import engines
 from app.core.config import settings
 
 # Use ClickHouse's HTTP interface with SQLModel
-#TODO: Use settings
-engine = create_engine('clickhouse+http://default:password@localhost:8123/default', echo=True)
+# TODO: Use settings
+# engine = create_engine('clickhouse+http://default:password@localhost:8123/default', echo=True)
+engine = create_engine(settings.SQLALCHEMY_DATABASE_URI, echo=True)
+
 
 # Use SQLModel's session maker
 SessionLocal = sessionmaker(bind=engine)
+
 
 def get_db():
     with Session(engine) as session:
         yield session
 
+
 # Ensure all tables are created
 def init_db():
     from app.models import Stats
-    
-    SQLModel.metadata.create_all(engine)
 
+    SQLModel.metadata.create_all(engine)
