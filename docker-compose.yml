@@ -2,7 +2,8 @@ version: "3.9"
 
 services:
   backend:
-    build: ./backend
+    build:
+      context: ./backend
     container_name: backend
     ports:
       - "8000:8000"
@@ -10,7 +11,7 @@ services:
       - clickhouse
     environment:
       - CLICKHOUSE_HOST=clickhouse
-      - CLICKHOUSE_PORT=8123
+      - CLICKHOUSE_PORT=9000
       - CLICKHOUSE_USER=default
       - CLICKHOUSE_PASSWORD=default
       - CLICKHOUSE_DB=default
@@ -25,7 +26,6 @@ services:
     container_name: clickhouse_db
     restart: always
     ports:
-      - "8123:8123" # HTTP interface
       - "9000:9000" # Native TCP interface
     environment:
       - CLICKHOUSE_DB=default

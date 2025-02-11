@@ -1,7 +1,6 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import  (
     computed_field,
-    ClickHouseDsn,
     AnyUrl
 )
 class Settings(BaseSettings):
@@ -14,13 +13,13 @@ class Settings(BaseSettings):
     CLICKHOUSE_USER: str = "default"
     CLICKHOUSE_PASSWORD: str = "default"
     CLICKHOUSE_HOST: str = "localhost"
-    CLICKHOUSE_PORT: int = 8123
+    CLICKHOUSE_PORT: int = 9000
     CLICKHOUSE_DB: str = "default"
     @computed_field  # type: ignore[prop-decorator]
     @property
-    def SQLALCHEMY_DATABASE_URI(self) -> ClickHouseDsn:
+    def SQLALCHEMY_DATABASE_URI(self) -> AnyUrl:
         return AnyUrl.build(
-            scheme="clickhouse+connect",
+            scheme="clickhouse+native",
             username=self.CLICKHOUSE_USER,
             password=self.CLICKHOUSE_PASSWORD,
             host=self.CLICKHOUSE_HOST,
