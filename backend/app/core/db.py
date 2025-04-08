@@ -18,5 +18,5 @@ def get_db():
 def init_db():
     from app.models import Stats
     
-    SQLModel.metadata.create_all(engine)
+    #SQLModel.metadata.create_all(engine)
 
