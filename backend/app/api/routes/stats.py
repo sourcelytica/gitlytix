@@ -4,7 +4,7 @@ from sqlmodel import Session
 from datetime import datetime, timedelta
 
 from app.core.db import get_db
-from app.api.schemas import IssuesOpenClosedResponse, ErrorResponse, DataQualityResponse
+from app.api.schemas import IssuesOpenClosedResponse, ErrorResponse, DataQualityResponse, IssueFirstResponseTimeResponse
 
 router = APIRouter(prefix="/stats", tags=["stats"])
 
@@ -181,6 +181,7 @@ def get_open_closed_issues(
             status_code=500,
             detail=f"Error retrieving issues data: {str(e)}"
         )
+    
 
 def format_time_difference(seconds):
     """Format a time difference in seconds to a human-readable string."""
@@ -206,3 +207,113 @@ def format_time_difference(seconds):
         return "Just now"
         
     return ", ".join(parts)
+
+@router.get(
+    "/issues/first-response-time",
+    response_model=IssueFirstResponseTimeResponse,
+    responses={404: {"model": ErrorResponse}, 500: {"model": ErrorResponse}}
+)
+def get_first_response_time(
+    repo_name: str = Query(..., description="Repository name in format 'owner/repo'"),
+    start_date: str = Query("2010-01-01", description="Start date in format 'YYYY-MM-DD'"),
+    exclude_opener_comments: bool = Query(True, description="Exclude comments by the issue opener"),
+    db: Session = Depends(get_db)
+):
+    """
+    Calculate average time between issue opening and first response comment.
+    
+    Returns:
+    - repository: Repository name
+    - average_response_time_seconds: Average in seconds
+    - average_response_time_readable: Human-readable average (e.g., "2 hours 30 minutes")
+    """
+    try:
+        query = text("""
+        WITH issue_openings AS (
+            SELECT 
+                repo_name,
+                number,
+                created_at as opened_at,
+                actor_login as opener_login
+            FROM github_events
+            WHERE event_type = 'IssuesEvent'
+              AND action = 'opened'
+              AND repo_name = :repo_name
+              AND created_at >= :start_date
+        ),
+        first_comments AS (
+            SELECT
+                io.repo_name,
+                io.number,
+                io.opened_at,
+                MIN(ge.created_at) as first_comment_at
+            FROM issue_openings io
+            JOIN github_events ge ON io.repo_name = ge.repo_name AND io.number = ge.number
+            WHERE ge.event_type = 'IssueCommentEvent'
+              AND ge.action = 'created'
+              AND ge.created_at > io.opened_at
+              {exclude_opener_condition}
+            GROUP BY io.repo_name, io.number, io.opened_at
+        ),
+        response_times AS (
+            SELECT
+                repo_name,
+                dateDiff('second', opened_at, first_comment_at) as response_time_seconds
+            FROM first_comments
+        )
+        SELECT
+            repo_name,
+            avg(response_time_seconds) as avg_seconds
+        FROM response_times
+        GROUP BY repo_name
+        """.format(
+            exclude_opener_condition="AND ge.actor_login != io.opener_login" if exclude_opener_comments else ""
+        ))
+
+        result = db.execute(query, {
+            "repo_name": repo_name,
+            "start_date": start_date
+        })
+        row = result.fetchone()
+
+        if not row or row[1] is None:
+            raise HTTPException(
+                status_code=404,
+                detail=f"No response data found for issues in repository: {repo_name}"
+            )
+
+        avg_seconds = float(row[1])
+        avg_timedelta = timedelta(seconds=avg_seconds)
+        
+        return {
+            "repository": repo_name,
+            "average_response_time_seconds": avg_seconds,
+            "average_response_time_readable": format_time_delta(avg_timedelta)
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error calculating first response time: {str(e)}"
+        )
+
+
+def format_time_delta(delta: timedelta) -> str:
+    """Convert timedelta to human-readable string (e.g., '2 days 3 hours')"""
+    seconds = delta.total_seconds()
+    periods = [
+        ('day', 86400),
+        ('hour', 3600),
+        ('minute', 60),
+        ('second', 1)
+    ]
+    
+    parts = []
+    for period_name, period_seconds in periods:
+        if seconds >= period_seconds:
+            period_value, seconds = divmod(seconds, period_seconds)
+            parts.append(f"{int(period_value)} {period_name}{'s' if period_value != 1 else ''}")
+    
+    return " ".join(parts[:2]) if parts else "0 seconds"
