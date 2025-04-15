@@ -46,5 +46,10 @@ class DataQualityResponse(BaseModel):
     )
 
 
+class IssueFirstResponseTimeResponse(BaseModel):
+    repository: str
+    average_response_time_seconds: float
+    average_response_time_readable: str
+
 class ErrorResponse(BaseModel):
     detail: str 
