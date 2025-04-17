@@ -4,7 +4,7 @@ from sqlmodel import Session
 from datetime import datetime, timedelta
 
 from app.core.db import get_db
-from app.api.schemas import IssuesOpenClosedResponse, ErrorResponse, DataQualityResponse, IssueFirstResponseTimeResponse
+from app.api.schemas import IssuesOpenClosedResponse, ErrorResponse, DataQualityResponse, IssueFirstResponseTimeResponse, PrSuccessRateResponse
 
 router = APIRouter(prefix="/stats", tags=["stats"])
 
@@ -317,3 +317,66 @@ def format_time_delta(delta: timedelta) -> str:
             parts.append(f"{int(period_value)} {period_name}{'s' if period_value != 1 else ''}")
     
     return " ".join(parts[:2]) if parts else "0 seconds"
+
+
+@router.get(
+    "/prs/success-rate",
+    response_model=PrSuccessRateResponse,
+    responses={500: {"model": ErrorResponse}}
+)
+def get_pr_success_rate(
+    repo_name: str = Query(..., description="Repository name in format 'owner/repo'"),
+    db: Session = Depends(get_db)
+):
+    """
+    Calculate the percentage of closed PRs that were successfully merged.
+    
+    This endpoint identifies all PRs that reached a 'closed' state and determines
+    what percentage of them were actually merged (as opposed to just closed without merging).
+    """
+    try:
+        query = text(
+            """
+            WITH pr_final_states AS (
+                SELECT
+                    number,
+                    argMax(action, created_at) as final_action,
+                    argMax(merged, created_at) as final_merged_status,
+                    max(created_at) as last_updated
+                FROM github_events
+                WHERE event_type = 'PullRequestEvent'
+                  AND repo_name = :repo_name
+                GROUP BY number
+            )
+            SELECT
+                COUNT() as total_closed_prs,
+                COUNTIf(final_merged_status = 1) as merged_prs,
+                ROUND(COUNTIf(final_merged_status = 1) * 100.0 / COUNT(), 2) as success_rate_percent
+            FROM pr_final_states
+            WHERE final_action = 'closed'
+            """
+        )
+
+        result = db.execute(query, {"repo_name": repo_name})
+        row = result.fetchone()
+
+        if not row or row[0] is None:
+            raise HTTPException(
+                status_code=404,
+                detail=f"No PR data found for repository: {repo_name}"
+            )
+
+        return {
+            "repository": repo_name,
+            "total_closed_prs": row[0],
+            "merged_prs": row[1],
+            "success_rate_percent": row[2]
+        }
+    except Exception as e:
+        if isinstance(e, HTTPException):
+            raise e
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error calculating PR success rate: {str(e)}"
+        ) 
+        
