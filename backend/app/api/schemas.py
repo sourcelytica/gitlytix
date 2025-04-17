@@ -51,5 +51,12 @@ class IssueFirstResponseTimeResponse(BaseModel):
     average_response_time_seconds: float
     average_response_time_readable: str
 
+
+class PrSuccessRateResponse(BaseModel):
+    repository: str
+    total_closed_prs: int = Field(description="Total number of PRs that were closed")
+    merged_prs: int = Field(description="Number of closed PRs that were merged")
+    success_rate_percent: float = Field(description="Percentage of closed PRs that were merged")
+
 class ErrorResponse(BaseModel):
     detail: str 
