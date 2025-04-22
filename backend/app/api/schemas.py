@@ -58,5 +58,10 @@ class PrSuccessRateResponse(BaseModel):
     merged_prs: int = Field(description="Number of closed PRs that were merged")
     success_rate_percent: float = Field(description="Percentage of closed PRs that were merged")
 
+class PrAvgClosingTimeResponse(BaseModel):
+    repository: str
+    average_closing_time_seconds: float
+    average_closing_time_readable: str
+
 class ErrorResponse(BaseModel):
     detail: str 
