@@ -4,7 +4,7 @@ from sqlmodel import Session
 from datetime import datetime, timedelta
 
 from app.core.db import get_db
-from app.api.schemas import IssuesOpenClosedResponse, ErrorResponse, DataQualityResponse, IssueFirstResponseTimeResponse, PrSuccessRateResponse, PrAvgClosingTimeResponse
+from app.api.schemas import IssuesOpenClosedResponse, ErrorResponse, DataQualityResponse, IssueFirstResponseTimeResponse, PrSuccessRateResponse, PrAvgClosingTimeResponse, BugResolutionTimeResponse
 
 router = APIRouter(prefix="/stats", tags=["stats"])
 
@@ -474,4 +474,100 @@ def get_pr_avg_closing_time(
         raise HTTPException(
             status_code=500,
             detail=f"Error calculating PR average closing time: {str(e)}"
+        )
+    
+
+@router.get(
+    "/bugs/avg-resolution-time",
+    response_model=BugResolutionTimeResponse,
+    responses={404: {"model": ErrorResponse}, 500: {"model": ErrorResponse}}
+)
+def get_bug_avg_resolution_time(
+    repo_name: str = Query(..., description="Repository name in format 'owner/repo'"),
+    start_date: str = Query("2010-01-01", description="Start date in format 'YYYY-MM-DD'"),
+    end_date: str = Query(None, description="End date in format 'YYYY-MM-DD' (defaults to now)"),
+    db: Session = Depends(get_db)
+):
+    """
+    Calculate average time between bug issue opening and closing.
+    
+    A bug is identified as an issue with a 'bug' label that was closed.
+    
+    Returns:
+    - repository: Repository name
+    - period: Time window analyzed
+    - average_resolution_time_seconds: Average in seconds
+    - average_resolution_time_readable: Human-readable average (e.g., "2 days 3 hours")
+    - total_bugs_resolved: Total number of bugs resolved in the time window
+    """
+    try:
+        end_date = end_date or datetime.utcnow().strftime("%Y-%m-%d")
+        
+        query = text("""
+        WITH bug_issues AS (
+            -- Get the first opened and last closed event for each issue
+            SELECT 
+                repo_name,
+                number,
+                minIf(created_at, action = 'opened') as opened_at,
+                maxIf(created_at, action = 'closed') as closed_at,
+                -- Check if any event for this issue had a 'bug' label
+                max(hasAny(labels, ['bug'])) as is_bug
+            FROM github_events
+            WHERE event_type = 'IssuesEvent'
+              AND repo_name = :repo_name
+              AND action IN ('opened', 'closed')
+              AND created_at BETWEEN :start_date AND :end_date
+            GROUP BY repo_name, number
+            HAVING is_bug = 1 AND closed_at IS NOT NULL AND opened_at IS NOT NULL
+        ),
+        resolution_times AS (
+            SELECT
+                repo_name,
+                dateDiff('second', opened_at, closed_at) as resolution_time_seconds
+            FROM bug_issues
+            WHERE resolution_time_seconds > 0  -- Ensure closed after opened
+              AND resolution_time_seconds < 31536000  -- Filter out resolutions > 1 year
+        )
+        SELECT
+            repo_name,
+            avg(resolution_time_seconds) as avg_seconds,
+            count() as total_bugs
+        FROM resolution_times
+        GROUP BY repo_name
+        """)
+
+        result = db.execute(query, {
+            "repo_name": repo_name,
+            "start_date": start_date,
+            "end_date": end_date
+        })
+        row = result.fetchone()
+
+        if not row or row[1] is None:
+            raise HTTPException(
+                status_code=404,
+                detail=f"No bug resolution data found for repository: {repo_name}"
+            )
+
+        avg_seconds = float(row[1])
+        avg_timedelta = timedelta(seconds=avg_seconds)
+        
+        return {
+            "repository": repo_name,
+            "period": {
+                "start": start_date,
+                "end": end_date
+            },
+            "average_resolution_time_seconds": avg_seconds,
+            "average_resolution_time_readable": format_time_delta(avg_timedelta),
+            "total_bugs_resolved": row[2]
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error calculating bug resolution time: {str(e)}"
         )
