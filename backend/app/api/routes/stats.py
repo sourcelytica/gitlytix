@@ -4,7 +4,7 @@ from sqlmodel import Session
 from datetime import datetime, timedelta
 
 from app.core.db import get_db
-from app.api.schemas import IssuesOpenClosedResponse, ErrorResponse, DataQualityResponse, IssueFirstResponseTimeResponse, PrSuccessRateResponse
+from app.api.schemas import IssuesOpenClosedResponse, ErrorResponse, DataQualityResponse, IssueFirstResponseTimeResponse, PrSuccessRateResponse, PrAvgClosingTimeResponse
 
 router = APIRouter(prefix="/stats", tags=["stats"])
 
@@ -380,3 +380,98 @@ def get_pr_success_rate(
             detail=f"Error calculating PR success rate: {str(e)}"
         ) 
         
+        
+@router.get(
+    "/prs/avg-closing-time",
+    response_model=PrAvgClosingTimeResponse,
+    responses={404: {"model": ErrorResponse}, 500: {"model": ErrorResponse}}
+)
+def get_pr_avg_closing_time(
+    repo_name: str = Query(..., description="Repository name in format 'owner/repo'"),
+    start_date: str = Query("2010-01-01", description="Start date in format 'YYYY-MM-DD'"),
+    db: Session = Depends(get_db)
+):
+    """
+    Calculate average time between PR opening and closing (either merged or closed without merging).
+    
+    Returns:
+    - repository: Repository name
+    - average_closing_time_seconds: Average in seconds
+    - average_closing_time_readable: Human-readable average (e.g., "2 days 3 hours")
+    """
+    try:
+        query = text("""
+        WITH pr_openings AS (
+            SELECT 
+                repo_name,
+                number,
+                created_at as opened_at
+            FROM github_events
+            WHERE event_type = 'PullRequestEvent'
+              AND action = 'opened'
+              AND repo_name = :repo_name
+              AND created_at >= :start_date
+        ),
+        pr_closings AS (
+            SELECT
+                repo_name,
+                number,
+                maxIf(created_at, action = 'closed') as closed_at
+            FROM github_events
+            WHERE event_type = 'PullRequestEvent'
+              AND action = 'closed'
+              AND repo_name = :repo_name
+              AND created_at >= :start_date
+            GROUP BY repo_name, number
+        ),
+        valid_prs AS (
+            SELECT
+                o.repo_name,
+                o.number,
+                o.opened_at,
+                c.closed_at
+            FROM pr_openings o
+            JOIN pr_closings c ON o.repo_name = c.repo_name AND o.number = c.number
+            WHERE c.closed_at > o.opened_at
+        ),
+        closing_times AS (
+            SELECT
+                repo_name,
+                dateDiff('second', opened_at, closed_at) as closing_time_seconds
+            FROM valid_prs
+        )
+        SELECT
+            repo_name,
+            avg(closing_time_seconds) as avg_seconds
+        FROM closing_times
+        GROUP BY repo_name
+        """)
+
+        result = db.execute(query, {
+            "repo_name": repo_name,
+            "start_date": start_date
+        })
+        row = result.fetchone()
+
+        if not row or row[1] is None:
+            raise HTTPException(
+                status_code=404,
+                detail=f"No PR closing data found for repository: {repo_name}"
+            )
+
+        avg_seconds = float(row[1])
+        avg_timedelta = timedelta(seconds=avg_seconds)
+        
+        return {
+            "repository": repo_name,
+            "average_closing_time_seconds": avg_seconds,
+            "average_closing_time_readable": format_time_delta(avg_timedelta)
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error calculating PR average closing time: {str(e)}"
+        )
