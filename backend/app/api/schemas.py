@@ -63,5 +63,12 @@ class PrAvgClosingTimeResponse(BaseModel):
     average_closing_time_seconds: float
     average_closing_time_readable: str
 
+class BugResolutionTimeResponse(BaseModel):
+    repository: str
+    period: PeriodInfo
+    average_resolution_time_seconds: float
+    average_resolution_time_readable: str
+    total_bugs_resolved: int
+
 class ErrorResponse(BaseModel):
     detail: str 
