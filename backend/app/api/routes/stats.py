@@ -2,9 +2,10 @@ from fastapi import APIRouter, HTTPException, Depends, Query
 from sqlalchemy import text
 from sqlmodel import Session
 from datetime import datetime, timedelta
+from typing import Optional
 
 from app.core.db import get_db
-from app.api.schemas import IssuesOpenClosedResponse, ErrorResponse, DataQualityResponse, IssueFirstResponseTimeResponse, PrSuccessRateResponse, PrAvgClosingTimeResponse, BugResolutionTimeResponse
+from app.api.schemas import IssuesOpenClosedResponse, ErrorResponse, DataQualityResponse, IssueFirstResponseTimeResponse, PrSuccessRateResponse, PrAvgClosingTimeResponse, BugResolutionTimeResponse, PrReviewTimeResponse
 
 router = APIRouter(prefix="/stats", tags=["stats"])
 
@@ -570,4 +571,88 @@ def get_bug_avg_resolution_time(
         raise HTTPException(
             status_code=500,
             detail=f"Error calculating bug resolution time: {str(e)}"
+        )
+
+@router.get(
+    "/prs/review-time",
+    response_model=PrReviewTimeResponse,
+    responses={404: {"model": ErrorResponse}, 500: {"model": ErrorResponse}}
+)
+def get_pr_review_time(
+    repo_name: str = Query(..., description="Repository name in format 'owner/repo'"),
+    db: Session = Depends(get_db)
+):
+    """
+    Calculate the average time until the first review for Pull Requests.
+    
+    This excludes reviews made by the PR author themselves.
+    """
+    try:
+        query = text(
+            """
+            WITH pr_opened_times AS (
+                SELECT
+                    number,
+                    argMin(created_at, created_at) as opened_at,
+                    argMin(actor_login, created_at) as pr_author
+                FROM github_events
+                WHERE event_type = 'PullRequestEvent' 
+                  AND action = 'opened' 
+                  AND repo_name = :repo_name
+                GROUP BY number
+            ),
+            review_event_times AS (
+                SELECT 
+                    number, 
+                    created_at AS review_at, 
+                    actor_login
+                FROM github_events
+                WHERE repo_name = :repo_name 
+                  AND event_type IN ('PullRequestReviewCommentEvent', 'PullRequestReviewEvent')
+            ),
+            first_review_times AS (
+                SELECT
+                    rev.number,
+                    min(rev.review_at) as first_review_at
+                FROM review_event_times rev
+                JOIN pr_opened_times po ON rev.number = po.number
+                WHERE rev.actor_login != po.pr_author AND rev.review_at >= po.opened_at
+                GROUP BY rev.number
+            )
+            SELECT
+                avg(dateDiff('second', po.opened_at, fr.first_review_at)) as avg_time_to_first_review_seconds,
+                count() as reviewed_pr_count
+            FROM pr_opened_times po
+            JOIN first_review_times fr ON po.number = fr.number
+            """
+        )
+        
+        result = db.execute(query, {"repo_name": repo_name})
+        row = result.fetchone()
+        
+        avg_seconds = None
+        readable_time = None
+        reviewed_count = 0
+        
+        if row and row[1] is not None and row[1] > 0:
+            reviewed_count = row[1]
+            avg_seconds = row[0]
+            if avg_seconds is not None:
+                avg_seconds = float(avg_seconds) 
+                readable_time = format_time_difference(avg_seconds)
+            else:
+                 avg_seconds = None
+                 readable_time = None
+            
+        return PrReviewTimeResponse(
+            repository=repo_name,
+            reviewed_pr_count=reviewed_count,
+            average_review_time_seconds=avg_seconds,
+            average_review_time_readable=readable_time
+        )
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error calculating PR review time: {str(e)}"
         )
