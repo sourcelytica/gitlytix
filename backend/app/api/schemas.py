@@ -70,5 +70,30 @@ class BugResolutionTimeResponse(BaseModel):
     average_resolution_time_readable: str
     total_bugs_resolved: int
 
+class PrReviewTimeResponse(BaseModel):
+    repository: str
+    reviewed_pr_count: int = Field(description="Number of PRs that received a review (excluding author)")
+    average_review_time_seconds: Optional[float] = Field(None, description="Average time in seconds until the first review by someone other than the author")
+    average_review_time_readable: Optional[str] = Field(None, description="Average time in human-readable format")
+    
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "repository": "owner/repo",
+                    "reviewed_pr_count": 50,
+                    "average_review_time_seconds": 7200.5,
+                    "average_review_time_readable": "2 hours, 0 minutes"
+                },
+                {
+                    "repository": "owner/repo",
+                    "reviewed_pr_count": 0,
+                    "average_review_time_seconds": None,
+                    "average_review_time_readable": None
+                }
+            ]
+        }
+    }
+
 class ErrorResponse(BaseModel):
     detail: str 
