@@ -95,5 +95,48 @@ class PrReviewTimeResponse(BaseModel):
         }
     }
 
+class IssueAvgResolutionTimeResponse(BaseModel):
+    repository: str
+    period: PeriodInfo
+    average_resolution_time_seconds: Optional[float] = Field(
+        None,
+        description="Average time in seconds from issue opening to closing"
+    )
+    average_resolution_time_readable: Optional[str] = Field(
+        None,
+        description="Average time in human-readable format",
+        example="2 days, 3 hours, 45 minutes"
+    )
+    total_issues_resolved: int = Field(
+        description="Total number of issues that were resolved (opened and closed)"
+    )
+    
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "repository": "owner/repo",
+                    "period": {
+                        "start": "2020-01-01",
+                        "end": "2023-01-01"
+                    },
+                    "average_resolution_time_seconds": 172800.5,
+                    "average_resolution_time_readable": "2 days, 0 hours",
+                    "total_issues_resolved": 50
+                },
+                {
+                    "repository": "owner/repo",
+                    "period": {
+                        "start": "2020-01-01",
+                        "end": "2023-01-01"
+                    },
+                    "average_resolution_time_seconds": None,
+                    "average_resolution_time_readable": None,
+                    "total_issues_resolved": 0
+                }
+            ]
+        }
+    }
+
 class ErrorResponse(BaseModel):
     detail: str 
