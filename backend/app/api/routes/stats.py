@@ -715,3 +715,81 @@ def get_issue_avg_resolution_time(
             status_code=500,
             detail=f"Error calculating issue resolution time: {str(e)}"
         )
+    
+@router.get(
+    "/releases/frequency",
+    responses={500: {"model": ErrorResponse}}
+)
+def get_release_frequency(
+    repo_name: str = Query(..., description="Repository name in format 'owner/repo'"),
+    start_month: str = Query(None, description="Start month in format 'YYYY-MM' (defaults to 12 months ago)"),
+    end_month: str = Query(None, description="End month in format 'YYYY-MM' (defaults to current month)"),
+    db: Session = Depends(get_db)
+):
+    """
+    Get release frequency statistics by month.
+    
+    Returns a list of months with release counts in the format:
+    [
+        {"month": "2025-01", "count": 4},
+        {"month": "2025-02", "count": 3},
+        ...
+    ]
+    
+    If no months are provided, defaults to last 12 months.
+    Returns empty array when there are no releases in range.
+    """
+    try:
+        # Set default date range (last 12 months if no dates provided)
+        now = datetime.utcnow()
+        current_month = now.strftime("%Y-%m")
+        
+        if not end_month:
+            end_month = current_month
+        if not start_month:
+            # Calculate 12 months before end_month
+            end_date = datetime.strptime(end_month + "-01", "%Y-%m-%d")
+            start_date = (end_date - timedelta(days=365)).strftime("%Y-%m")
+            start_month = start_date
+        
+        # Convert YYYY-MM to first day of month for database query
+        start_date = f"{start_month}-01"
+        end_date = f"{end_month}-01"
+        
+        query = text("""
+        WITH release_events AS (
+            SELECT 
+                toStartOfMonth(created_at) as month,
+                count() as count
+            FROM github_events
+            WHERE event_type = 'ReleaseEvent'
+              AND repo_name = :repo_name
+              AND created_at BETWEEN :start_date AND :end_date
+            GROUP BY month
+            ORDER BY month
+        )
+        SELECT 
+            formatDateTime(month, '%Y-%m') as month_str,
+            count
+        FROM release_events
+        """)
+
+        result = db.execute(query, {
+            "repo_name": repo_name,
+            "start_date": start_date,
+            "end_date": end_date
+        })
+        
+        # Format results as list of {"month": "YYYY-MM", "count": N}
+        data = [
+            {"month": row[0], "count": row[1]}
+            for row in result.fetchall()
+        ]
+        
+        return {"data": data}
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error retrieving release frequency data: {str(e)}"
+        )
