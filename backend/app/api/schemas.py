@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import Dict, Optional
+from typing import Dict, Optional, List
 from datetime import datetime
 
 
@@ -140,3 +140,14 @@ class IssueAvgResolutionTimeResponse(BaseModel):
 
 class ErrorResponse(BaseModel):
     detail: str 
+
+
+class MonthlyIssueStat(BaseModel):
+    month: str = Field(description="Month in YYYY-MM format")
+    opened: int = Field(description="Number of issues opened in this month")
+    closed: int = Field(description="Number of issues closed in this month")
+
+
+class IssuesOpenClosedMonthlyResponse(BaseModel):
+    repository: str
+    data: List[MonthlyIssueStat] = Field(description="List of monthly issue statistics for the last 6 months") 

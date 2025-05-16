@@ -731,8 +731,8 @@ def get_release_frequency(
     
     Returns a list of months with release counts in the format:
     [
-        {"month": "2025-01", "count": 4},
-        {"month": "2025-02", "count": 3},
+        {"month": "2025-01", "releases": 4},
+        {"month": "2025-02", "releases": 3},
         ...
     ]
     
@@ -760,7 +760,7 @@ def get_release_frequency(
         WITH release_events AS (
             SELECT 
                 toStartOfMonth(created_at) as month,
-                count() as count
+                count() as releases
             FROM github_events
             WHERE event_type = 'ReleaseEvent'
               AND repo_name = :repo_name
@@ -770,7 +770,7 @@ def get_release_frequency(
         )
         SELECT 
             formatDateTime(month, '%Y-%m') as month_str,
-            count
+            releases
         FROM release_events
         """)
 
@@ -780,9 +780,8 @@ def get_release_frequency(
             "end_date": end_date
         })
         
-        # Format results as list of {"month": "YYYY-MM", "count": N}
         data = [
-            {"month": row[0], "count": row[1]}
+            {"month": row[0], "releases": row[1]}
             for row in result.fetchall()
         ]
         
