@@ -25,7 +25,7 @@ const ReleaseFreq: React.FC<ReleaseFreqProps> = ({ releaseData }) => {
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-              <XAxis dataKey="name" stroke="#6B7280" />
+              <XAxis dataKey="month" stroke="#6B7280" />
               <YAxis stroke="#6B7280" />
               <Tooltip contentStyle={{ backgroundColor: '#F3F4F6', border: '1px solid #E5E7EB' }} />
               <Area type="monotone" dataKey="releases" stroke="#3B82F6" fillOpacity={1} fill="url(#colorReleases)" />

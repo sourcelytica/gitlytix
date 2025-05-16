@@ -2,7 +2,7 @@ import DashboardClient from './dashboard-client';
 
 // Define interfaces for the data structures
 interface ReleaseDataEntry {
-  name: string;
+  month: string;
   releases: number;
 }
 
@@ -31,6 +31,17 @@ interface DashboardMetrics {
   bugFixRate: number;
 }
 
+// Interface for the actual data structure from /api/v1/stats/releases/frequency
+interface ApiReleaseMonthEntry {
+  month: string; // e.g., "2024-05"
+  count: number; // API uses 'count' for the number of releases
+}
+
+// Wrapper for the API response, as it returns { data: [...] }
+interface ReleasesApiResponse {
+  data: ApiReleaseMonthEntry[]; 
+}
+
 async function fetchData<T>(url: string, mockData: T, delay: number = 500): Promise<T> {
   console.log(`Fetching ${url} on server...`);
   const response = await fetch("http://localhost:8000" + url);
@@ -39,27 +50,40 @@ async function fetchData<T>(url: string, mockData: T, delay: number = 500): Prom
     return mockData;
   }
   const data = await response.json();
+  console.log('RELESE DAA',data )
   return data;
-
 }
 
 async function fetchReleaseData(): Promise<ReleaseDataEntry[]> {
-  return fetchData<ReleaseDataEntry[]>(
-    '/api/v1/stats/releases/frequency?repo_name=mindsdb%2Fmindsdb',
-    [
-      { name: 'Jan', releases: 2 },
-      { name: 'Feb', releases: 1 },
-      { name: 'Mar', releases: 3 },
-      { name: 'Apr', releases: 2 },
-      { name: 'May', releases: 4 },
-      { name: 'Jun', releases: 2 },
-    ]
-  );
+  try {
+    const apiResponse = await fetchData<ReleasesApiResponse>(
+      '/api/v1/stats/releases/frequency?repo_name=mindsdb%2Fmindsdb',
+      { data: [] }
+    );
+    if (apiResponse && apiResponse.data && Array.isArray(apiResponse.data)) {
+      const transformedData = apiResponse.data.map(item => {
+        const [year, monthNum] = item.month.split('-');
+        const date = new Date(parseInt(year), parseInt(monthNum) - 1, 1);
+        const monthName = date.toLocaleString('en-US', { month: 'short' });
+        return {
+          month: monthName,
+          releases: item.count,
+        };
+      });
+      console.log('Transformed Release Data (in fetchReleaseData):', transformedData);
+      return transformedData;
+    }
+    console.error("Failed to fetch or transform release data, returning empty array.");
+    return [];
+  } catch (error) {
+    console.error("Error in fetchReleaseData, returning empty array:", error);
+    return [];
+  }
 }
 
 async function fetchIssueData(): Promise<IssueDataEntry[]> {
   return fetchData<IssueDataEntry[]>(
-    '/api/issue-data',
+    '/api/issue-data', // Example API endpoint
     [
       { name: 'Jan', open: 40, closed: 24 },
       { name: 'Feb', open: 30, closed: 35 },
@@ -73,7 +97,7 @@ async function fetchIssueData(): Promise<IssueDataEntry[]> {
 
 async function fetchIssueTypeData(): Promise<IssueTypeEntry[]> {
   return fetchData<IssueTypeEntry[]>(
-    '/api/issue-type-data',
+    '/api/issue-type-data', // Example API endpoint
     [
       { name: 'Bugs', value: 30 },
       { name: 'Features', value: 45 },
@@ -84,7 +108,7 @@ async function fetchIssueTypeData(): Promise<IssueTypeEntry[]> {
 
 async function fetchDashboardMetrics(): Promise<DashboardMetrics> {
   return fetchData<DashboardMetrics>(
-    '/api/dashboard-metrics',
+    '/api/dashboard-metrics', // Example API endpoint
     {
         score: 88,
         activityLevel: "Very High",
@@ -98,7 +122,7 @@ async function fetchDashboardMetrics(): Promise<DashboardMetrics> {
         documentationQuality: "Excellent",
         bugFixRate: 1.2,
     },
-    100 
+    100 // Shorter delay for this one
   );
 }
 
@@ -115,6 +139,8 @@ export default async function Page() {
     fetchIssueTypeData(),
     fetchDashboardMetrics()
   ]);
+
+  console.log('Release Data (in Page component, before passing to DashboardClient):', releaseData);
 
   return (
     <DashboardClient
