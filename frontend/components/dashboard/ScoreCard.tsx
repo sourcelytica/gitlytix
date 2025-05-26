@@ -6,12 +6,12 @@ import { Trophy } from 'lucide-react';
 
 interface ScoreCardProps {
   score: number;
-  activityLevel: string;
-  engagementLevel: string;
-  qualityLevel: string;
+  // activityLevel: string; // Removed
+  // engagementLevel: string; // Removed
+  // qualityLevel: string; // Removed
 }
 
-const ScoreCard: React.FC<ScoreCardProps> = ({ score, activityLevel, engagementLevel, qualityLevel }) => {
+const ScoreCard: React.FC<ScoreCardProps> = ({ score /*, activityLevel, engagementLevel, qualityLevel */ }) => {
   const scorePercentage = score / 100;
 
   return (
@@ -69,12 +69,12 @@ const ScoreCard: React.FC<ScoreCardProps> = ({ score, activityLevel, engagementL
             <div className="text-gray-500 text-sm mt-1">out of 100</div> {/* Added margin-top */}
           </div>
         </div>
-        {/* Badges */}
-        <div className="flex flex-wrap justify-center gap-2 mt-4"> {/* Added gap and flex-wrap */}
+        {/* Badges - Removing these as their data is no longer available */}
+        {/* <div className="flex flex-wrap justify-center gap-2 mt-4">
           <Badge variant="outline" className="border-blue-300 bg-blue-50 text-blue-800">Activity: {activityLevel}</Badge>
           <Badge variant="outline" className="border-purple-300 bg-purple-50 text-purple-800">Engagement: {engagementLevel}</Badge>
           <Badge variant="outline" className="border-green-300 bg-green-50 text-green-800">Quality: {qualityLevel}</Badge>
-        </div>
+        </div> */}
       </CardContent>
     </Card>
   );

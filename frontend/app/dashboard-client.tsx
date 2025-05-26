@@ -11,7 +11,6 @@ import ProjectOverview from '@/components/dashboard/ProjectOverview';
 import ReleaseFreq from '@/components/dashboard/ReleaseFreq';
 import OpenClosedIssues from '@/components/dashboard/OpenClosedIssues';
 import NewContributors from '@/components/dashboard/NewContributors';
-import DocumentationQuality from '@/components/dashboard/DocumentationQuality';
 import BugFixRate from '@/components/dashboard/BugFixRate';
 
 interface ReleaseDataEntry {
@@ -35,15 +34,11 @@ interface DashboardClientProps {
   initialIssueData: IssueDataEntry[];
   initialIssueTypeData: IssueTypeEntry[];
   score: number;
-  activityLevel: string;
-  engagementLevel: string;
-  qualityLevel: string;
   firstResponseTime: number;
   avgIssueResolution: number;
   prReviewTime: number;
   prSuccessRate: number;
   newContributors: number;
-  documentationQuality: string;
   bugFixRate: number;
 }
 
@@ -55,15 +50,11 @@ export default function DashboardClient(props: DashboardClientProps) {
     initialIssueData,
     initialIssueTypeData,
     score,
-    activityLevel,
-    engagementLevel,
-    qualityLevel,
     firstResponseTime,
     avgIssueResolution,
     prReviewTime,
     prSuccessRate,
     newContributors,
-    documentationQuality,
     bugFixRate
   } = props;
 
@@ -91,9 +82,6 @@ export default function DashboardClient(props: DashboardClientProps) {
           >
           <ScoreCard 
             score={score} 
-            activityLevel={activityLevel} 
-            engagementLevel={engagementLevel} 
-            qualityLevel={qualityLevel} 
           />
         </motion.div>
           
@@ -145,15 +133,6 @@ export default function DashboardClient(props: DashboardClientProps) {
           <NewContributors newContributors={newContributors} />
 
           </motion.div>
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 1.1 }}
-          >
-            <DocumentationQuality documentationQuality={documentationQuality} />
-
-          </motion.div>
-
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}

@@ -1,8 +1,9 @@
 import DashboardClient from './dashboard-client';
+import { calculateOsScore } from '../lib/scoring';
 
 // Define interfaces for the data structures
 interface ReleaseDataEntry {
-  month: string;
+  name: string;
   releases: number;
 }
 
@@ -17,18 +18,10 @@ interface IssueTypeEntry {
   value: number;
 }
 
-interface DashboardMetrics {
-  score: number;
-  activityLevel: string;
-  engagementLevel: string;
-  qualityLevel: string;
+export interface DashboardMetrics {
   firstResponseTime: number;
   avgIssueResolution: number;
   prReviewTime: number;
-  prSuccessRate: number;
-  newContributors: number;
-  documentationQuality: string;
-  bugFixRate: number;
 }
 
 // Interface for the actual data structure from /api/v1/stats/releases/frequency
@@ -66,7 +59,7 @@ async function fetchReleaseData(): Promise<ReleaseDataEntry[]> {
         const date = new Date(parseInt(year), parseInt(monthNum) - 1, 1);
         const monthName = date.toLocaleString('en-US', { month: 'short' });
         return {
-          month: monthName,
+          name: monthName,
           releases: item.count,
         };
       });
@@ -110,17 +103,9 @@ async function fetchDashboardMetrics(): Promise<DashboardMetrics> {
   return fetchData<DashboardMetrics>(
     '/api/dashboard-metrics', // Example API endpoint
     {
-        score: 88,
-        activityLevel: "Very High",
-        engagementLevel: "High",
-        qualityLevel: "Excellent",
         firstResponseTime: 2.1,
         avgIssueResolution: 3.0,
-        prReviewTime: 1.5,
-        prSuccessRate: 82,
-        newContributors: 18,
-        documentationQuality: "Excellent",
-        bugFixRate: 1.2,
+        prReviewTime: 1.5
     },
     100 // Shorter delay for this one
   );
@@ -132,7 +117,7 @@ export default async function Page() {
     releaseData,
     issueData,
     issueTypeData,
-    metrics
+    rawMetrics
   ] = await Promise.all([
     fetchReleaseData(),
     fetchIssueData(),
@@ -140,24 +125,21 @@ export default async function Page() {
     fetchDashboardMetrics()
   ]);
 
-  console.log('Release Data (in Page component, before passing to DashboardClient):', releaseData);
+  // Calculate the OS Score
+  const osScore = calculateOsScore(rawMetrics);
 
   return (
     <DashboardClient
       initialReleaseData={releaseData}
       initialIssueData={issueData}
       initialIssueTypeData={issueTypeData}
-      score={metrics.score}
-      activityLevel={metrics.activityLevel}
-      engagementLevel={metrics.engagementLevel}
-      qualityLevel={metrics.qualityLevel}
-      firstResponseTime={metrics.firstResponseTime}
-      avgIssueResolution={metrics.avgIssueResolution}
-      prReviewTime={metrics.prReviewTime}
-      prSuccessRate={metrics.prSuccessRate}
-      newContributors={metrics.newContributors}
-      documentationQuality={metrics.documentationQuality}
-      bugFixRate={metrics.bugFixRate}
+      score={osScore}
+      firstResponseTime={rawMetrics.firstResponseTime}
+      avgIssueResolution={rawMetrics.avgIssueResolution}
+      prReviewTime={rawMetrics.prReviewTime}
+      prSuccessRate={11}
+      newContributors={17}
+      bugFixRate={2}
     />
   );
 }
