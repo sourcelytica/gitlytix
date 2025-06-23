@@ -248,3 +248,68 @@ def get_release_frequency(
             status_code=500,
             detail=f"Error retrieving release frequency data: {str(e)}"
         )
+    
+
+@router.get(
+    "/contributors/new",
+    responses={500: {"model": ErrorResponse}}
+)
+def get_new_contributors(
+    repo_name: str = Query(..., description="Repository name in format 'owner/repo'"),
+    months: int = Query(6, description="Time window in months to look for new contributors (default: 6)", ge=1, le=24),
+    db: Session = Depends(get_db)
+):
+    """
+    Get list of users who made their first contribution to the repository within the specified time window.
+    
+    Returns a list of new contributors with their first contribution date and GitHub profile URL.
+    Only considers PushEvent and PullRequestEvent as qualifying contributions.
+    
+    Default time window is 6 months (maximum 24 months allowed).
+    """
+    try:
+        query = text("""
+        WITH first_contributions AS (
+            SELECT
+                actor_login as username,
+                min(created_at) as first_contribution_date
+            FROM github_events
+            WHERE repo_name = :repo_name
+              AND event_type IN ('PushEvent', 'PullRequestEvent')
+            GROUP BY actor_login
+            HAVING first_contribution_date >= subtractMonths(now(), :months)
+        )
+        SELECT
+            username,
+            first_contribution_date,
+            concat('https://github.com/', username) as profile_url
+        FROM first_contributions
+        ORDER BY first_contribution_date DESC
+        """)
+
+        result = db.execute(query, {
+            "repo_name": repo_name,
+            "months": months
+        })
+        
+        contributors = [
+            {
+                "username": row[0],
+                "first_contribution_date": row[1].strftime("%Y-%m-%d"),
+                "profile_url": row[2]
+            }
+            for row in result.fetchall()
+        ]
+        
+        return {
+            "repository": repo_name,
+            "time_window_months": months,
+            "new_contributors_count": len(contributors),
+            "contributors": contributors
+        }
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error retrieving new contributors data: {str(e)}"
+        )
