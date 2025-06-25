@@ -7,9 +7,9 @@ interface MetricConfig {
 }
 
 interface MetricsConfig {
-  firstResponseTime: MetricConfig;
-  avgIssueResolution: MetricConfig;
-  prReviewTime: MetricConfig;
+  firstResponseTimeSeconds: MetricConfig;
+  avgIssueResolutionSeconds: MetricConfig;
+  prReviewTimeSeconds: MetricConfig;
 }
 
 // TODO: We should cosider refining these default min/max values.
@@ -21,17 +21,17 @@ const DEFAULT_MAX_TIME_PR_REVIEW = 5; // 5 days for worst-case PR review time
 
 
 const METRIC_CONFIGS: MetricsConfig = {
-  firstResponseTime: {
+  firstResponseTimeSeconds: {
     weight: 0.40, 
     min: DEFAULT_MIN_TIME,
     max: DEFAULT_MAX_TIME_RESPONSE
   },
-  avgIssueResolution: {
+  avgIssueResolutionSeconds: {
     weight: 0.20, 
     min: DEFAULT_MIN_TIME,
     max: DEFAULT_MAX_TIME_RESOLUTION
   },
-  prReviewTime: {
+  prReviewTimeSeconds: {
     weight: 0.40, 
     min: DEFAULT_MIN_TIME,
     max: DEFAULT_MAX_TIME_PR_REVIEW
@@ -63,11 +63,11 @@ export function calculateOsScore(metrics: DashboardMetrics): number {
       if (config.max !== undefined) {
         maxValue = config.max;
       } else {
-        if (metricKey === 'firstResponseTime') {
+        if (metricKey === 'firstResponseTimeSeconds') {
           maxValue = DEFAULT_MAX_TIME_RESPONSE;
-        } else if (metricKey === 'avgIssueResolution') {
+        } else if (metricKey === 'avgIssueResolutionSeconds') {
           maxValue = DEFAULT_MAX_TIME_RESOLUTION;
-        } else if (metricKey === 'prReviewTime') {
+        } else if (metricKey === 'prReviewTimeSeconds') {
           maxValue = DEFAULT_MAX_TIME_PR_REVIEW;
         } else {
           console.warn(`Metric ${metricKey} is missing a 'max' configuration and a specific default.`);
