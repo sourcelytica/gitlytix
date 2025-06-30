@@ -240,8 +240,8 @@ def get_release_frequency(
             {"month": row[0], "releases": row[1]}
             for row in result.fetchall()
         ]
-        
-        return {"data": data}
+        print('******************', data)
+        return data
 
     except Exception as e:
         raise HTTPException(

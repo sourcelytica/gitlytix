@@ -86,29 +86,14 @@ async function fetchData<T>(
 
 async function fetchReleaseData(): Promise<ReleaseDataEntry[]> {
   try {
-    const apiResponse = await fetchData<ReleasesApiResponse>(
+    const apiResponse = await fetchData<ReleaseDataEntry[]>(
       "/api/v1/stats/releases/frequency?repo_name=mindsdb%2Fmindsdb",
-      { data: [] }
+      []
     );
-    if (apiResponse && apiResponse.data && Array.isArray(apiResponse.data)) {
-      const transformedData = apiResponse.data.map((item) => {
-        const [year, monthNum] = item.month.split("-");
-        const date = new Date(parseInt(year), parseInt(monthNum) - 1, 1);
-        const monthName = date.toLocaleString("en-US", { month: "short" });
-        return {
-          month: monthName,
-          releases: item.releases,
-        };
-      });
-      console.log(
-        "Transformed Release Data (in fetchReleaseData):",
-        transformedData
-      );
-      return transformedData;
+    // If backend returns the array directly, map to { month, releases }
+    if (Array.isArray(apiResponse)) {
+      return apiResponse.map(({ month, releases }) => ({ month, releases }));
     }
-    console.error(
-      "Failed to fetch or transform release data, returning empty array."
-    );
     return [];
   } catch (error) {
     console.error("Error in fetchReleaseData, returning empty array:", error);
@@ -240,8 +225,6 @@ async function fetchNewContributors(): Promise<number> {
     return 17;
   }
 }
-
-
 
 export default async function Page() {
   const [releaseData, issueData, issueTypeData, rawMetrics, newContributorsCount] = await Promise.all(
