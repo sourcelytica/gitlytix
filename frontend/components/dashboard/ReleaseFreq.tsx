@@ -3,7 +3,7 @@ import { TrendingUp } from "lucide-react";
 import { XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts'
 
 interface ReleaseFreqProps {
-    releaseData: { name: string; releases: number }[];
+    releaseData: { month: string; releases: number }[];
 }
 
 const ReleaseFreq: React.FC<ReleaseFreqProps> = ({ releaseData }) => {

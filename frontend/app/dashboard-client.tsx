@@ -14,13 +14,13 @@ import NewContributors from '@/components/dashboard/NewContributors';
 import BugFixRate from '@/components/dashboard/BugFixRate';
 
 interface ReleaseDataEntry {
-  name: string;
+  month: string;
   releases: number;
 }
 
 interface IssueDataEntry {
-  name: string;
-  open: number;
+  month: string;
+  opened: number;
   closed: number;
 }
 
@@ -37,7 +37,7 @@ interface DashboardClientProps {
   firstResponseTime: number;
   avgIssueResolution: number;
   prReviewTime: number;
-  prSuccessRate: number;
+  // prSuccessRate: string;
   newContributors: number;
   bugFixRate: number;
 }
@@ -53,7 +53,7 @@ export default function DashboardClient(props: DashboardClientProps) {
     firstResponseTime,
     avgIssueResolution,
     prReviewTime,
-    prSuccessRate,
+    // prSuccessRate,
     newContributors,
     bugFixRate
   } = props;
@@ -95,7 +95,7 @@ export default function DashboardClient(props: DashboardClientProps) {
             firstResponseTime={firstResponseTime} 
             avgIssueResolution={avgIssueResolution} 
             prReviewTime={prReviewTime} 
-            prSuccessRate={prSuccessRate} 
+            // prSuccessRate={prSuccessRate} 
           />
           </motion.div>
         </div>

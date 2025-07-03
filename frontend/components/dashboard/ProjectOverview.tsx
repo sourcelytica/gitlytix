@@ -7,10 +7,10 @@ interface ProjectOverviewProps {
     firstResponseTime: number;
     avgIssueResolution: number;
     prReviewTime: number;
-    prSuccessRate: number;
+    // prSuccessRate: string;
   }
   
-  const ProjectOverview: React.FC<ProjectOverviewProps> = ({ firstResponseTime, avgIssueResolution, prReviewTime, prSuccessRate }) => {
+  const ProjectOverview: React.FC<ProjectOverviewProps> = ({ firstResponseTime, avgIssueResolution, prReviewTime }) => {
     return(
     <Card className="bg-white shadow-md h-full">
         <CardHeader>
@@ -18,7 +18,7 @@ interface ProjectOverviewProps {
         <CardDescription>Key project statistics</CardDescription>
         </CardHeader>
         <CardContent>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4">
             <motion.div 
             className="flex items-center space-x-2 bg-gray-50 p-3 rounded-lg"
             whileHover={{ scale: 1.05 }}
@@ -46,13 +46,13 @@ interface ProjectOverviewProps {
             whileHover={{ scale: 1.05 }}
             transition={{ type: "spring", stiffness: 400, damping: 10 }}
             >
-            <GitPullRequest className="h-8 w-8 text-blue-600" />
+            <GitPullRequest className="h-8 w-12 text-blue-600" />
             <div>
                 <p className="text-sm font-medium text-gray-600">PR Review Time</p>
                 <p className="text-2xl font-bold text-gray-900">{prReviewTime}</p>
             </div>
             </motion.div>
-            <motion.div 
+            {/* <motion.div 
             className="flex items-center space-x-2 bg-gray-50 p-3 rounded-lg"
             whileHover={{ scale: 1.05 }}
             transition={{ type: "spring", stiffness: 400, damping: 10 }}
@@ -62,7 +62,7 @@ interface ProjectOverviewProps {
                 <p className="text-sm font-medium text-gray-600">PR Success Rate</p>
                 <p className="text-2xl font-bold text-gray-900">{prSuccessRate}</p>
             </div>
-            </motion.div>
+            </motion.div> */}
         </div>
         </CardContent>
     </Card>

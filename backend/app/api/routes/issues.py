@@ -4,7 +4,7 @@ from sqlmodel import Session
 from datetime import datetime, timedelta
 
 from app.core.db import get_db
-from app.api.schemas import IssuesOpenClosedResponse, ErrorResponse, IssueFirstResponseTimeResponse, IssueAvgResolutionTimeResponse
+from app.api.schemas import IssuesOpenClosedMonthlyResponse, ErrorResponse, IssueFirstResponseTimeResponse, IssueAvgResolutionTimeResponse
 from app.core.utils import format_time_delta
 
 router = APIRouter(prefix="/stats", tags=["stats"])
@@ -12,108 +12,86 @@ router = APIRouter(prefix="/stats", tags=["stats"])
 
 @router.get(
     "/issues/open-closed",
-    response_model=IssuesOpenClosedResponse,
+    response_model=IssuesOpenClosedMonthlyResponse,
     responses={500: {"model": ErrorResponse}}
 )
 def get_open_closed_issues(
     repo_name: str = Query(..., description="Repository name in format 'owner/repo'"),
-    start_date: str = Query("2010-01-01 00:00:00", description="Start date in format 'YYYY-MM-DD HH:MM:SS'"),
     db: Session = Depends(get_db)
 ):
     """
-    Get counts of opened and closed issues for a specific repository.
-    
-    This endpoint retrieves the number of issues that have been opened and closed
-    in a specific GitHub repository since the given start date.
-    
-    The data is retrieved from the GitHub events database and provides insight
-    into the repository's issue activity.
+    Get monthly issue statistics for the past 6 months from ClickHouse.
+    Returns counts of opened and closed issues formatted with month names.
     """
     try:
-        # Simple query to get issue states
-        state_query = text(
-            """
-            WITH last_action AS (
-                SELECT
-                    number,
-                    argMax(action, created_at) as most_recent_action
-                FROM github_events
-                WHERE event_type = 'IssuesEvent'
-                  AND action IN ('opened', 'closed', 'reopened')
-                  AND repo_name = :repo_name
-                GROUP BY number
-            )
-            SELECT
-                most_recent_action,
-                COUNT(*) as count
-            FROM last_action
-            GROUP BY most_recent_action
-            """
-        )
+        # Calculate date range - last 6 months from now
+        end_date = datetime.now()
+        start_date = end_date - timedelta(days=180)  # ~6 months
         
-        # Get event counts for the specified date range
-        events_query = text(
+        # ClickHouse SQL query
+        query = text(
             """
             SELECT
-                action,
-                COUNT(*) AS count
+                toStartOfMonth(created_at) AS month,
+                countIf(action = 'opened') AS opened,
+                countIf(action = 'closed') AS closed
             FROM github_events
             WHERE event_type = 'IssuesEvent'
               AND action IN ('opened', 'closed')
               AND created_at >= :start_date
+              AND created_at <= :end_date
               AND repo_name = :repo_name
-            GROUP BY action
+            GROUP BY month
+            ORDER BY month
             """
         )
         
-        # Execute queries
-        state_result = db.execute(state_query, {"repo_name": repo_name})
-        states = state_result.fetchall()
+        # Execute query with ClickHouse-compatible date formatting
+        result = db.execute(query, {
+            "repo_name": repo_name,
+            "start_date": start_date,
+            "end_date": end_date
+        })
+        db_results = result.fetchall()
         
-        events_result = db.execute(events_query, {"repo_name": repo_name, "start_date": start_date})
-        events = events_result.fetchall()
+        # Process results
+        monthly_stats = []
         
-        # Process state results in Python
-        current_state = {}
-        for state in states:
-            action = state[0]
-            count = state[1]
-            current_state[action] = count
+        # Generate all months in the period
+        current_month = start_date.replace(day=1)
+        while current_month <= end_date.replace(day=1):
+            # ClickHouse returns dates as datetime.date objects
+            current_month_date = current_month.date()
+            
+            # Find matching data from DB
+            db_data = next((row for row in db_results if row[0] == current_month_date), None)
+            
+            # Format month as YYYY-MM to match MonthlyIssueStat
+            month_str = current_month.strftime("%Y-%m")
+            
+            monthly_stats.append({
+                "month": month_str,
+                "opened": db_data[1] if db_data else 0,
+                "closed": db_data[2] if db_data else 0
+            })
+            
+            # Move to next month
+            if current_month.month == 12:
+                current_month = current_month.replace(year=current_month.year + 1, month=1)
+            else:
+                current_month = current_month.replace(month=current_month.month + 1)
         
-        # Calculate metrics
-        currently_open = sum(current_state.get(action, 0) for action in ['opened', 'reopened'])
-        currently_closed = current_state.get('closed', 0)
-        total_created = currently_open + currently_closed
-        
-        # Process event counts
-        event_counts = {}
-        for event in events:
-            action = event[0]
-            count = event[1]
-            event_counts[action] = count
-        
-        opened_events = event_counts.get('opened', 0)
-        closed_events = event_counts.get('closed', 0)
+        # Get only the last 6 months
+        last_6_months = monthly_stats[-6:]
         
         return {
-            "repository": repo_name,
-            "period": {
-                "start": start_date,
-                "end": "now"
-            },
-            "issues": {
-                "opened": opened_events,
-                "closed": closed_events,
-                # Calculated metrics (states)
-                "total_created": total_created,
-                "currently_open": currently_open,
-                "currently_closed": currently_closed
-            }
+           last_6_months
         }
+        
     except Exception as e:
         raise HTTPException(
             status_code=500,
-            detail=f"Error retrieving issues data: {str(e)}"
+            detail=f"Error retrieving monthly issues data: {str(e)}"
         )
     
 

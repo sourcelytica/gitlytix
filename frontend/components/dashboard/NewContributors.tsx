@@ -15,7 +15,7 @@ const NewContributors: React.FC<NewContributorsProps> = ({ newContributors }) =>
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold text-gray-900">{newContributors}</div>
-          <p className="text-xs text-gray-500">in the last 3 months</p>
+          <p className="text-xs text-gray-500">in the last 6 months</p>
           <div className="mt-4 h-2 bg-blue-100 rounded-full overflow-hidden">
             <motion.div
               className="h-2 bg-blue-600 rounded-full"
