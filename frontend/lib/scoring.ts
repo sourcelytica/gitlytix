@@ -12,12 +12,14 @@ interface MetricsConfig {
   prReviewTimeSeconds: MetricConfig;
 }
 
+const SECONDS_IN_DAY = 86400;
+
 // TODO: We should cosider refining these default min/max values.
 //  We cad do sampling repositories and using statistical measures (like percentiles) 
 const DEFAULT_MIN_TIME = 0;
-const DEFAULT_MAX_TIME_RESPONSE = 7; // 7 days for worst-case response time
-const DEFAULT_MAX_TIME_RESOLUTION = 30; // 30 days for worst-case resolution time
-const DEFAULT_MAX_TIME_PR_REVIEW = 5; // 5 days for worst-case PR review time
+const DEFAULT_MAX_TIME_RESPONSE = 7 * SECONDS_IN_DAY; // 7 days in seconds
+const DEFAULT_MAX_TIME_RESOLUTION = 30 * SECONDS_IN_DAY; // 30 days in seconds
+const DEFAULT_MAX_TIME_PR_REVIEW = 5 * SECONDS_IN_DAY; // 5 days in seconds
 
 
 const METRIC_CONFIGS: MetricsConfig = {
@@ -74,7 +76,6 @@ export function calculateOsScore(metrics: DashboardMetrics): number {
           maxValue = DEFAULT_MAX_TIME_RESPONSE; // Assign a generic default to prevent errors
         }
       }
-      
       const normalizedScore = normalizeMetric(rawValue, minValue, maxValue);
       totalWeightedScore += normalizedScore * config.weight;
     }
