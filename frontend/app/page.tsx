@@ -202,8 +202,8 @@ async function fetchDashboardMetrics(): Promise<DashboardMetrics> {
       avgIssueResolutionReadable: issueResolutionData.average_resolution_time_readable,
       prReviewTimeReadable: prReviewData.average_review_time_readable,
       firstResponseTimeSeconds: firstResponseData.average_response_time_seconds,
-      avgIssueResolutionSeconds: firstResponseData.average_response_time_seconds,
-      prReviewTimeSeconds: firstResponseData.average_response_time_seconds,
+      avgIssueResolutionSeconds: issueResolutionData.average_resolution_time_seconds,
+      prReviewTimeSeconds: prReviewData.average_review_time_seconds,
     };
   } catch (error) {
     console.error("Error fetching dashboard metrics, using mock data:", error);

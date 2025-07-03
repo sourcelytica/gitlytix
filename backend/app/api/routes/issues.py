@@ -85,7 +85,8 @@ def get_open_closed_issues(
         last_6_months = monthly_stats[-6:]
         
         return {
-           last_6_months
+            "repository": repo_name,
+            "data": last_6_months
         }
         
     except Exception as e:
